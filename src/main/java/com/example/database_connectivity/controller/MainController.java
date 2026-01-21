@@ -9,64 +9,116 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 
-
 public class MainController {
 
-    // These match the fx:id in the FXML exactly
     @FXML private TextField nameField;
     @FXML private TextField emailField;
     @FXML private TextField courseField;
-
     @FXML private TableView<Student> studentTable;
     @FXML private TableColumn<Student, Integer> colId;
     @FXML private TableColumn<Student, String> colName;
     @FXML private TableColumn<Student, String> colEmail;
     @FXML private TableColumn<Student, String> colCourse;
 
-    // Create an instance of your DAO to handle database logic
     private final StudentDAO studentDAO = new StudentDAO();
 
     @FXML
     public void initialize() {
-        // 1. Link the Table Columns to the Student Class attributes
-        // The strings "id", "name", etc. MUST match the getters in Student.java
-        // e.g. "name" looks for public String getName()
         colId.setCellValueFactory(new PropertyValueFactory<>("id"));
         colName.setCellValueFactory(new PropertyValueFactory<>("name"));
         colEmail.setCellValueFactory(new PropertyValueFactory<>("email"));
         colCourse.setCellValueFactory(new PropertyValueFactory<>("course"));
 
-        // 2. Load data from database when app starts
         loadData();
+
+        // SENIOR TIP: Add a listener to handle row selection
+        // When a user clicks a row, populate the text fields
+        studentTable.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
+            if (newSelection != null) {
+                nameField.setText(newSelection.getName());
+                emailField.setText(newSelection.getEmail());
+                courseField.setText(newSelection.getCourse());
+            }
+        });
     }
 
     @FXML
-    protected void onSaveButtonClick() {
-        String name = nameField.getText();
-        String email = emailField.getText();
-        String course = courseField.getText();
+    protected void onAddButtonClick() {
+        if (isValidInput()) {
+            studentDAO.insertStudent(nameField.getText(), emailField.getText(), courseField.getText());
+            refreshTable();
+        }
+    }
 
-        // Basic Validation
-        if (name.isEmpty() || email.isEmpty()) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setContentText("Name and Email are required!");
-            alert.show();
+    @FXML
+    protected void onUpdateButtonClick() {
+        Student selected = studentTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert("Selection Error", "Please select a student to update.");
             return;
         }
 
-        // 3. Send data to Database
-        studentDAO.insertStudent(name, email, course);
+        if (isValidInput()) {
+            // Create a new student object with the OLD ID but NEW info
+            Student updatedStudent = new Student(
+                    selected.getId(), // Keep the ID!
+                    nameField.getText(),
+                    emailField.getText(),
+                    courseField.getText()
+            );
 
-        // 4. Clear fields and Refresh Table
-        nameField.clear();
-        emailField.clear();
-        courseField.clear();
+            studentDAO.updateStudent(updatedStudent);
+            refreshTable();
+        }
+    }
+
+    @FXML
+    protected void onDeleteButtonClick() {
+        Student selected = studentTable.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            showAlert("Selection Error", "Please select a student to delete.");
+            return;
+        }
+
+        // Confirm deletion (Optional but recommended)
+        studentDAO.deleteStudent(selected.getId());
+        refreshTable();
+    }
+
+    @FXML
+    protected void onClearButtonClick() {
+        clearFields();
+        studentTable.getSelectionModel().clearSelection();
+    }
+
+    private void refreshTable() {
         loadData();
+        clearFields();
     }
 
     private void loadData() {
-        // Fetch list from DB and put it into the TableView
         ObservableList<Student> list = FXCollections.observableArrayList(studentDAO.getStudents());
         studentTable.setItems(list);
+    }
+
+    private void clearFields() {
+        nameField.clear();
+        emailField.clear();
+        courseField.clear();
+    }
+
+    private boolean isValidInput() {
+        if (nameField.getText().isEmpty() || emailField.getText().isEmpty()) {
+            showAlert("Validation Error", "Name and Email are required!");
+            return false;
+        }
+        return true;
+    }
+
+    private void showAlert(String title, String message) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle(title);
+        alert.setContentText(message);
+        alert.show();
     }
 }
