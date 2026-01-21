@@ -119,6 +119,8 @@ View (FXML)  ←→  Controller (MainController)  ←→  Model (Student) + DAO
 
 ### Application Window
 
+![Application Window](assets/gui.png)
+
 The application provides a clean, intuitive interface with the following sections:
 
 ```
